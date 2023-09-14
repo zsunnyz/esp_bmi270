@@ -4,6 +4,7 @@
 #include "esp_bmi270.h"
 #include "rom/ets_sys.h"
 #include "driver/gpio.h"
+
 /// @brief Default constructor
 BMI270::BMI270() {
     // Nothing to do
@@ -49,41 +50,88 @@ int8_t BMI270::begin() {
     return BMI2_OK;
 }
 
+/**
+ * @brief Simple way to initialise the IMU as a device on the SPI bus, start communications
+ *          and set default configurations
+ * 
+ * @param spi_host: The SPI peripheral the imu is connected to, can be:
+ *                      - SPI1_HOST
+ *                      - SPI2_HOST
+ *                      - SPI3_HOST
+ * @param imu_CS_num: The chip select GPIO pin number for the BMI270
+ * @param ret_imu_spi_dev: The function sets the return IMU SPI device struct
+ * @param clock_speed: Clock speed of the IMU in hz, default is 100kHz
+ * @param queue_size: The queue size for SPI transactions, default 3
+ * @return (int8_t): Error code (0 is success, negative is failure, positive is warning)
+ */
+int8_t BMI270::beginSPI(spi_host_device_t spi_host, gpio_num_t imu_CS_num, spi_device_interface_config_t* ret_imu_spi_dev, int clock_speed, int queue_size) {
+    *ret_imu_spi_dev = {.command_bits=0, 
+                        .address_bits=8, 
+                        .dummy_bits=0, 
+                        .mode=0, 
+                        .cs_ena_posttrans=3,        //Keep the CS low 3 cycles after transaction, to stop slave from missing the last bit when CS has less propagation delay than CLK
+                        .clock_speed_hz=clock_speed, 
+                        .spics_io_num=imu_CS_num,
+                        .flags = SPI_DEVICE_HALFDUPLEX, 
+                        .queue_size=queue_size};
+    
+    this->interfaceData.spi_host = spi_host;
+    this->interfaceData.spi_intf_conf = ret_imu_spi_dev;
+
+    BMI2_INTF_RETURN_TYPE err = this->SPI_dev_init();
+    if (err != ESP_OK) {
+        return err; 
+    }
+
+    // Initialise sensor
+    return this->begin(); 
+}
 
 /**
- * @brief Initialize the SPI bus, begin communication with the sensor over SPI, 
+ * @brief Initialize the IMU on the SPI bus and begin communication with the sensor over SPI, 
  * intiialize it, and set default config parameters
  * 
  * @param spi_host: The SPI peripheral the imu is connected to, can be:
  *                      - SPI1_HOST
  *                      - SPI2_HOST
  *                      - SPI3_HOST
- * @param spi_bus_conf: the configuration structure for a SPI bus
- * @param dma_chan: the DMA channel to use
- *                      - SPI_DMA_DISABLED
- *                      - SPI_DMA_CH1
- *                      - SPI_DMA_CH2
- *                      - SPI_DMA_CH_AUTO
- * @param device_conf: the configuration for a SPI slave device 
- * @return (int8_t): 
+ * @param device_conf: A pointer to the configuration for a SPI slave device 
+ * @return (int8_t): Error code (0 is success, negative is failure, positive is warning)
+ * 
+ * @note the SPI bus should already be initialised by calling spi_bus_initialize before calling this function
  */
-int8_t BMI270::beginSPI(spi_host_device_t spi_host, spi_bus_config_t spi_bus_conf, spi_dma_chan_t dma_chan, spi_device_interface_config_t device_conf) {
+int8_t BMI270::beginSPI(spi_host_device_t spi_host, spi_device_interface_config_t *device_conf) {
     this->interfaceData.spi_host = spi_host;
-    this->interfaceData.spi_conf = spi_bus_conf;
+    this->interfaceData.spi_intf_conf = device_conf;
 
-    // initialise SPI
-    spi_bus_initialize(spi_host, &spi_bus_conf, dma_chan);
-    spi_bus_add_device(spi_host, &device_conf, &(this->interfaceData.spi_device));
+    BMI2_INTF_RETURN_TYPE err = this->SPI_dev_init();
+    if (err != ESP_OK) {
+        return err; 
+    }
+
+    // Initialise sensor
+    return this->begin();
+
+}
+
+/**
+ * @brief Helper function to add the IMU as an SPI bus
+ * 
+ * @return (BMI2_INTF_RETURN_TYPE): Error code (0 is success, negative is failure, positive is warning)
+ */
+BMI2_INTF_RETURN_TYPE BMI270::SPI_dev_init() {
+    esp_err_t err = spi_bus_add_device(this->interfaceData.spi_host, this->interfaceData.spi_intf_conf, &(this->interfaceData.spi_device));
+    if (err != ESP_OK) {
+        ESP_LOGE(BMI_TAG, "Could not add device!, got error: %s", esp_err_to_name(err));
+        return BMI2_E_DEV_NOT_FOUND;
+    }
 
     // Set interface
     this->sensor.intf = BMI2_SPI_INTF;
     this->interfaceData.interface = BMI2_SPI_INTF;
 
     this->sensor.dummy_byte = 1;
-
-    // Initialise sensor
-    return this->begin();
-
+    return BMI2_OK;
 }
 
 /**

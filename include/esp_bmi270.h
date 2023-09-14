@@ -11,6 +11,7 @@ extern "C" {
 #include "esp_log.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
+#include "hal/gpio_types.h"
 
 // The BMI270 API distinguishes between "data" and "feature" interrupt sources.
 // This mapInterruptToPin() function does not distinguish between those sources,
@@ -87,8 +88,8 @@ struct BMI270_InterfaceData
     uint8_t spiCSPin;
     uint32_t spiClockFrequency;
     spi_host_device_t spi_host;
-    spi_bus_config_t spi_conf;
     spi_device_handle_t spi_device;
+    spi_device_interface_config_t *spi_intf_conf;
 };
 
 // Struct to hold acceleration data
@@ -159,8 +160,9 @@ class BMI270
         // Sensor initialization, must specify communication interface
         // int8_t beginI2C(uint8_t address = BMI2_I2C_PRIM_ADDR, TwoWire& wirePort = Wire);
         // int8_t beginSPI(uint8_t csPin, uint32_t clockFrequency = 100000);
-        
-        int8_t beginSPI(spi_host_device_t spi_host, spi_bus_config_t spi_bus_conf, spi_dma_chan_t dma_chan, spi_device_interface_config_t device_conf);
+        int8_t beginSPI(spi_host_device_t spi_host, gpio_num_t imu_CS_num, spi_device_interface_config_t* ret_imu_spi_dev, int clock_speed = 100000, int queue_size = 3);
+        int8_t beginSPI(spi_host_device_t spi_host, spi_device_interface_config_t* device_conf);
+        // int8_t beginSPI(spi_host_device_t spi_host, spi_bus_config_t spi_bus_conf, spi_dma_chan_t dma_chan, spi_device_interface_config_t device_conf);
         
         // Sensor initialization, after communication interface has been selected
         int8_t begin();
@@ -265,6 +267,9 @@ class BMI270
 
         // Delay helper function
         static void usDelay(uint32_t period, void* interfacePtr);
+
+        // SPI helper function
+        BMI2_INTF_RETURN_TYPE SPI_dev_init();
 
         // Reference to the sensor
         struct bmi2_dev sensor;
