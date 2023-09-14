@@ -2,6 +2,7 @@
 #include <ctype.h>
 #include <stdio.h>
 #include "esp_bmi270.h"
+#include "rom/ets_sys.h"
 #include "driver/gpio.h"
 /// @brief Default constructor
 BMI270::BMI270() {
@@ -125,32 +126,17 @@ BMI2_INTF_RETURN_TYPE BMI270::readRegisters(uint8_t regAddress, uint8_t* dataBuf
  * @return (BMI2_INTF_RETURN_TYPE): (0 is success, negative is failure, positivie is warning)
  */
 BMI2_INTF_RETURN_TYPE BMI270::readRegistersSPI(uint8_t regAddress, uint8_t* dataBuffer, uint32_t numBytes, BMI270_InterfaceData* interfaceData) {
-    spi_transaction_t trans = {.addr=(uint8_t)(regAddress|BMI2_SPI_RD_MASK), .length = 8};
-    esp_err_t err;
-
-    err = spi_device_acquire_bus(interfaceData->spi_device, portMAX_DELAY);
-    if (err != ESP_OK) {
-        ESP_LOGE(BMI_TAG, "Failed to acquire SPI bus, got error: %s", esp_err_to_name(err));
-        return BMI2_E_COM_FAIL;
-    }
-
-    err = spi_device_polling_transmit(interfaceData->spi_device, &trans);
-
+    spi_transaction_t trans = {.addr=regAddress,
+                                .length = 0, 
+                                .rxlength=numBytes*8, 
+                                .rx_buffer=dataBuffer};
+    
+    ESP_LOGV(BMI_TAG, "Reading from register 0x%x", regAddress);
+    esp_err_t err = spi_device_polling_transmit(interfaceData->spi_device, &trans);
     if (err != ESP_OK) {
         ESP_LOGE(BMI_TAG, "Failed to transmit to read register %x, error %s", regAddress, esp_err_to_name(err));
         return BMI2_E_COM_FAIL;
     }
-
-    err = spi_device_polling_transmit(interfaceData->spi_device, &trans);
-
-    trans = {.length = 0, .rxlength=numBytes*8, .rx_buffer=dataBuffer};
-    if (err != ESP_OK) {
-        ESP_LOGE(BMI_TAG, "Failed to recieve data from register %x, error %s", regAddress, esp_err_to_name(err));
-        return BMI2_E_COM_FAIL;
-    }
-  
-
-    spi_device_release_bus(interfaceData->spi_device);
     return BMI2_OK;
 }
 
@@ -194,24 +180,18 @@ BMI2_INTF_RETURN_TYPE BMI270::writeRegisters(uint8_t regAddress, const uint8_t* 
  * @return (BMI2_INTF_RETURN_TYPE): (0 is success, negative is failure, positivie is warning)
  */
 BMI2_INTF_RETURN_TYPE BMI270::writeRegistersSPI(uint8_t regAddress, const uint8_t* dataBuffer, uint32_t numBytes, BMI270_InterfaceData* interfaceData) {
-    spi_transaction_t trans = {.addr=(uint8_t)(regAddress|BMI2_SPI_WR_MASK), .length = numBytes*8, .rxlength=0, .tx_buffer=dataBuffer};
-    esp_err_t err;
+    spi_transaction_t trans = {.addr=regAddress, 
+                                .length = numBytes*8, 
+                                .rxlength=0, 
+                                .tx_buffer=dataBuffer};
 
-    err = spi_device_acquire_bus(interfaceData->spi_device, portMAX_DELAY);
-
-    if (err != ESP_OK) {
-        ESP_LOGE(BMI_TAG, "Failed to acquire SPI bus, got error: %s", esp_err_to_name(err));
-        return BMI2_E_COM_FAIL;
-    }
-
-    err = spi_device_polling_transmit(interfaceData->spi_device, &trans);
-
+    ESP_LOGV(BMI_TAG, "Writing to register 0x%x", regAddress);
+    esp_err_t err = spi_device_polling_transmit(interfaceData->spi_device, &trans);
     if (err != ESP_OK) {
         ESP_LOGE(BMI_TAG, "Failed to write register %x, error %s", regAddress, esp_err_to_name(err));
         return BMI2_E_COM_FAIL;
     }
 
-    spi_device_release_bus(interfaceData->spi_device);
     return BMI2_OK;
 }
 
@@ -223,7 +203,7 @@ BMI2_INTF_RETURN_TYPE BMI270::writeRegistersSPI(uint8_t regAddress, const uint8_
  */
 void BMI270::usDelay(uint32_t period, void* interfacePtr)
 {
-    vTaskDelay(period/portTICK_PERIOD_MS);
+    ets_delay_us(period);
 }
 
 /**
