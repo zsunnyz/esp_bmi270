@@ -1,16 +1,16 @@
 #ifndef ESP_BMI270_H
 #define ESP_BMI270_H
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #include "BMI270-Sensor-API/bmi270.h"
 #include "driver/spi_master.h"
 #include "esp_err.h"
 #include "esp_log.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
-
-#ifdef __cplusplus
-extern "C" {
-#endif
 
 // The BMI270 API distinguishes between "data" and "feature" interrupt sources.
 // This mapInterruptToPin() function does not distinguish between those sources,

@@ -217,3 +217,52 @@ void BMI270::usDelay(uint32_t period, void* interfacePtr)
 {
     vTaskDelay(period/portTICK_PERIOD_MS);
 }
+
+/**
+ * @brief Enables features of teh sensor
+ * 
+ * @param features: Array of features to be enabled, see bmi270_sensor_enable for possible values
+ * @param numFeatures:Size of features array
+ * @return (int8_t): (0 is success, negative is failure, positive is warning)
+ */
+int8_t BMI270::enableFeatures(uint8_t* features, uint8_t numFeatures)
+{
+    return bmi270_sensor_enable(features, numFeatures, &sensor);
+}
+
+/**
+ * @brief Disables features of teh sensor
+ * 
+ * @param features: Array of features to be enabled, see bmi270_sensor_disable for possible values
+ * @param numFeatures:Size of features array
+ * @return (int8_t): (0 is success, negative is failure, positive is warning)
+ */
+int8_t BMI270::disableFeatures(uint8_t* features, uint8_t numFeatures)
+{
+    return bmi270_sensor_disable(features, numFeatures, &sensor);
+}
+
+/**
+ * @brief Gets configuration parameters for sensor features, such as the
+ * sensors or interrupts
+ * @param configs Array of configs to be set. Possible types include:
+ *     BMI2_ACCEL
+ *     BMI2_GYRO
+ *     BMI2_AUX
+ *     BMI2_GYRO_GAIN_UPDATE
+ *     BMI2_ANY_MOTION
+ *     BMI2_NO_MOTION
+ *     BMI2_SIG_MOTION
+ *     BMI2_STEP_COUNTER_PARAMS
+ *     BMI2_STEP_DETECTOR
+ *     BMI2_STEP_COUNTER
+ *     BMI2_STEP_ACTIVITY
+ *     BMI2_WRIST_GESTURE
+ *     BMI2_WRIST_WEAR_WAKE_UP
+ * @param numConfigs Size of configs array
+ * @return Error code (0 is success, negative is failure, positive is warning)
+ */
+int8_t BMI270::getConfigs(bmi2_sens_config* configs, uint8_t numConfigs)
+{
+    return bmi270_get_sensor_config(configs, numConfigs, &sensor);
+}
