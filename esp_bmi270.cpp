@@ -2,7 +2,7 @@
 #include <ctype.h>
 #include <stdio.h>
 #include "esp_bmi270.h"
-
+#include "driver/gpio.h"
 /// @brief Default constructor
 BMI270::BMI270() {
     // Nothing to do
@@ -125,11 +125,10 @@ BMI2_INTF_RETURN_TYPE BMI270::readRegisters(uint8_t regAddress, uint8_t* dataBuf
  * @return (BMI2_INTF_RETURN_TYPE): (0 is success, negative is failure, positivie is warning)
  */
 BMI2_INTF_RETURN_TYPE BMI270::readRegistersSPI(uint8_t regAddress, uint8_t* dataBuffer, uint32_t numBytes, BMI270_InterfaceData* interfaceData) {
-    spi_transaction_t trans = {.addr=(uint8_t)(regAddress|BMI2_SPI_RD_MASK), .length = 8, .rxlength=numBytes*8, .rx_buffer=dataBuffer};
+    spi_transaction_t trans = {.addr=(uint8_t)(regAddress|BMI2_SPI_RD_MASK), .length = 8};
     esp_err_t err;
 
     err = spi_device_acquire_bus(interfaceData->spi_device, portMAX_DELAY);
-
     if (err != ESP_OK) {
         ESP_LOGE(BMI_TAG, "Failed to acquire SPI bus, got error: %s", esp_err_to_name(err));
         return BMI2_E_COM_FAIL;
@@ -138,9 +137,18 @@ BMI2_INTF_RETURN_TYPE BMI270::readRegistersSPI(uint8_t regAddress, uint8_t* data
     err = spi_device_polling_transmit(interfaceData->spi_device, &trans);
 
     if (err != ESP_OK) {
-        ESP_LOGE(BMI_TAG, "Failed to read register %x, error %s", regAddress, esp_err_to_name(err));
+        ESP_LOGE(BMI_TAG, "Failed to transmit to read register %x, error %s", regAddress, esp_err_to_name(err));
         return BMI2_E_COM_FAIL;
     }
+
+    err = spi_device_polling_transmit(interfaceData->spi_device, &trans);
+
+    trans = {.length = 0, .rxlength=numBytes*8, .rx_buffer=dataBuffer};
+    if (err != ESP_OK) {
+        ESP_LOGE(BMI_TAG, "Failed to recieve data from register %x, error %s", regAddress, esp_err_to_name(err));
+        return BMI2_E_COM_FAIL;
+    }
+  
 
     spi_device_release_bus(interfaceData->spi_device);
     return BMI2_OK;

@@ -161,6 +161,10 @@ class BMI270
         // int8_t beginSPI(uint8_t csPin, uint32_t clockFrequency = 100000);
         
         int8_t beginSPI(spi_host_device_t spi_host, spi_bus_config_t spi_bus_conf, spi_dma_chan_t dma_chan, spi_device_interface_config_t device_conf);
+        
+        // Sensor initialization, after communication interface has been selected
+        int8_t begin();
+
 
         // Sensor control
         int8_t reset();
@@ -242,9 +246,6 @@ class BMI270
         BMI270_SensorData data;
 
     private:
-        // Sensor initialization, after communication interface has been selected
-        int8_t begin();
-
         // Convert from raw data (bmi2_sens_data) to g's (BMI270_SensorData)
         void convertRawAccelData(bmi2_sens_axes_data* rawData, BMI270_SensorData* data);
         void convertRawGyroData(bmi2_sens_axes_data* rawData, BMI270_SensorData* data);
