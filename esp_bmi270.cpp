@@ -10,6 +10,10 @@ BMI270::BMI270() {
     // Nothing to do
 }
 
+BMI270::~BMI270() {
+    spi_bus_remove_device(this->interfaceData.spi_device);
+}
+
 /** 
  * @brief Checks whether sensor is connected, initializes sensor, then sets
  * default config parameters
@@ -27,24 +31,30 @@ int8_t BMI270::begin() {
     this->sensor.read_write_len = 32;
 
     // Initialize the sensor
+    ESP_LOGI(BMI_TAG, "Initialising the sensor");
+    // Need this line to ensure that the config file gets set properly
+    this->sensor.config_file_ptr = NULL;
     err = bmi270_init(&this->sensor);
     if(err != BMI2_OK) return err;
 
+    ESP_LOGI(BMI_TAG, "IMU SPI features");
     // Enable the accelerometer and gyroscope
     uint8_t features[] = {BMI2_ACCEL, BMI2_GYRO};
     err = enableFeatures(features, 2);
     if(err != BMI2_OK) return err;
 
     // Get the accelerometer and gyroscope configs
+    ESP_LOGI(BMI_TAG, "IMU SPI device retrieving configs");
     bmi2_sens_config configs[2];
     configs[0].type = BMI2_ACCEL;
     configs[1].type = BMI2_GYRO;
     err = getConfigs(configs, 2);
     if(err != BMI2_OK) return err;
-
+    
+    ESP_LOGI(BMI_TAG, "IMU SPI device retreived configs");
     // Store the accelerometer and gyroscope ranges, these are needed elsewhere
-    accRange = configs[0].cfg.acc.range;
-    gyrRange = configs[1].cfg.gyr.range;
+    rawToGs = convertRawToGsScalar(configs[0].cfg.acc.range);
+    rawToDegSec = convertRawToDegSecScalar(configs[1].cfg.gyr.range);
 
     // Done!
     return BMI2_OK;
@@ -131,6 +141,8 @@ BMI2_INTF_RETURN_TYPE BMI270::SPI_dev_init() {
     this->interfaceData.interface = BMI2_SPI_INTF;
 
     this->sensor.dummy_byte = 1;
+
+    ESP_LOGI(BMI_TAG, "IMU SPI device successfully initialised");
     return BMI2_OK;
 }
 
@@ -178,8 +190,8 @@ BMI2_INTF_RETURN_TYPE BMI270::readRegistersSPI(uint8_t regAddress, uint8_t* data
                                 .length = 0, 
                                 .rxlength=numBytes*8, 
                                 .rx_buffer=dataBuffer};
-    
-    ESP_LOGV(BMI_TAG, "Reading from register 0x%x", regAddress);
+
+    ESP_LOGV(BMI_TAG, "Reading to register 0x%x with information at address %p", regAddress, dataBuffer);
     esp_err_t err = spi_device_polling_transmit(interfaceData->spi_device, &trans);
     if (err != ESP_OK) {
         ESP_LOGE(BMI_TAG, "Failed to transmit to read register %x, error %s", regAddress, esp_err_to_name(err));
@@ -233,7 +245,7 @@ BMI2_INTF_RETURN_TYPE BMI270::writeRegistersSPI(uint8_t regAddress, const uint8_
                                 .rxlength=0, 
                                 .tx_buffer=dataBuffer};
 
-    ESP_LOGV(BMI_TAG, "Writing to register 0x%x", regAddress);
+    ESP_LOGV(BMI_TAG, "Writing to register 0x%x with information at address %p", regAddress, dataBuffer);
     esp_err_t err = spi_device_polling_transmit(interfaceData->spi_device, &trans);
     if (err != ESP_OK) {
         ESP_LOGE(BMI_TAG, "Failed to write register %x, error %s", regAddress, esp_err_to_name(err));
