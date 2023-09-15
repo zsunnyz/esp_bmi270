@@ -6,6 +6,7 @@ extern "C" {
 #endif
 
 #include "BMI270-Sensor-API/bmi270.h"
+#include "BMI270-Sensor-API/bmi2_defs.h"
 #include "driver/spi_master.h"
 #include "esp_err.h"
 #include "esp_log.h"
@@ -156,6 +157,8 @@ class BMI270
     public:
         // Constructor
         BMI270();
+        // Destructor
+        ~BMI270();
 
         // Sensor initialization, must specify communication interface
         // int8_t beginI2C(uint8_t address = BMI2_I2C_PRIM_ADDR, TwoWire& wirePort = Wire);
@@ -268,6 +271,9 @@ class BMI270
         // Delay helper function
         static void usDelay(uint32_t period, void* interfacePtr);
 
+        float convertRawToGsScalar(uint8_t accRange);
+        float convertRawToDegSecScalar(uint8_t gyrRange);
+
         // SPI helper function
         BMI2_INTF_RETURN_TYPE SPI_dev_init();
 
@@ -278,8 +284,8 @@ class BMI270
         BMI270_InterfaceData interfaceData;
 
         // Need to track the range of each sensor for converting raw data
-        uint8_t accRange;
-        uint8_t gyrRange;
+        float rawToGs;
+        float rawToDegSec;
 
         // Need to track the FIFO config for some FIFO functions
         uint16_t fifoConfigFlags;
